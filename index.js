@@ -1,6 +1,17 @@
 require('dotenv').config();
+const http = require('http');
 const { App } = require('@slack/bolt');
 
+// Mini HTTP server for Render health checks and keep-alive
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('GalaxyBot is online 24/7!');
+}).listen(port, () => {
+  console.log(`Web server listening on port ${port}`);
+});
+
+// Bolt Socket Mode App
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   appToken: process.env.SLACK_APP_TOKEN,
@@ -16,18 +27,15 @@ app.command('/dh-ping', async ({ command, ack, respond }) => {
   });
 });
 
-// 2. /dh-dice : Roll a dice (e.g., /dh-dice or /dh-dice 20)
+// 2. /dh-dice : Roll a dice
 app.command('/dh-dice', async ({ command, ack, respond }) => {
   await ack();
-
   let sides = 6;
   const parsed = parseInt(command.text.trim(), 10);
   if (!isNaN(parsed) && parsed > 1) {
     sides = parsed;
   }
-
   const roll = Math.floor(Math.random() * sides) + 1;
-
   await respond({
     response_type: 'in_channel',
     text: `🎲 <@${command.user_id}> rolled a *d${sides}* and got: *${roll}*!`,
@@ -47,7 +55,6 @@ const quotes = [
 app.command('/dh-quote', async ({ command, ack, respond }) => {
   await ack();
   const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-
   await respond({
     response_type: 'in_channel',
     text: `💡 *Dev Quote for <@${command.user_id}>:*\n> ${randomQuote}`,
