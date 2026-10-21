@@ -1,5 +1,17 @@
 require('dotenv').config();
+const http = require('http');
 const { App } = require('@slack/bolt');
+
+const startTime = Date.now();
+
+// Render keep-alive health check
+const PORT = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('GalaxyBot is running.');
+}).listen(PORT, () => {
+  console.log(`Keep-alive server listening on port ${PORT}`);
+});
 
 const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
@@ -7,87 +19,75 @@ const app = new App({
   socketMode: true,
 });
 
-const startTime = Date.now();
-
-function getUptime() {
-  const totalSeconds = Math.floor((Date.now() - startTime) / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${hours}h ${minutes}m ${seconds}s`;
-}
-
-// 1. /dh-ping : This command checks the bot's latency and onlne status. It responds with a "Pong" message along with the current timestamp.
-app.command('/dh-ping', async ({ command, ack, respond }) => {
+// Ping command
+app.command('/dh-ping', async ({ ack, respond }) => {
   await ack();
   await respond({
     response_type: 'in_channel',
-    text: `🏓 *Pong!* GalaxyBot is online and responsive.\n⏱️ *Timestamp:* ${new Date().toLocaleTimeString()}`,
+    text: `🏓 Pong! Bot is active. Current time: ${new Date().toLocaleTimeString()}`,
   });
 });
 
-// 2. /dh-dice : This command rolls a die with a specified number of slides (default is 6). User can specify th number of slides by providing a number often the command (e.g., /dh-dice 20). The bot will return a random number between 1 and the specified number of slides.
+// Dice roll command
 app.command('/dh-dice', async ({ command, ack, respond }) => {
   await ack();
-
-  let sides = 6;
-  const parsed = parseInt(command.text.trim(), 10);
-  if (!isNaN(parsed) && parsed > 1) {
-    sides = parsed;
-  }
-
-  const roll = Math.floor(Math.random() * sides) + 1;
+  const input = parseInt(command.text.trim(), 10);
+  const sides = !isNaN(input) && input > 1 ? input : 6;
+  const result = Math.floor(Math.random() * sides) + 1;
 
   await respond({
     response_type: 'in_channel',
-    text: `🎲 <@${command.user_id}> rolled a *d${sides}* and got: *${roll}*!`,
+    text: `🎲 <@${command.user_id}> rolled a d${sides} and got *${result}*!`,
   });
 });
 
-// 3. /dh-quote : This command reuturns a random programming quote from a predefined list of quotes.
-const quotes = [
-  "\"Programs must be written for people to read, and only incidentally for machines to execute.\" — Harold Abelson",
-  "\"Any fool can write code that a computer can understand. Good programmers write code that humans can understand.\" — Martin Fowler",
-  "\"First, solve the problem. Then, write the code.\" — John Johnson",
-  "\"Experience is the name everyone gives to their mistakes.\" — Oscar Wilde",
-  "\"Code is like humor. When you have to explain it, it’s bad.\" — Cory House",
-  "\"Simplicity is prerequisite for reliability.\" — Edsger W. Dijkstra"
+// Random developer quote
+const devQuotes = [
+  "Talk is cheap. Show me the code. — Linus Torvalds",
+  "Programs must be written for people to read, and only incidentally for machines to execute. — Harold Abelson",
+  "First, solve the problem. Then, write the code. — John Johnson",
+  "Simplicity is prerequisite for reliability. — Edsger W. Dijkstra",
+  "Make it work, make it right, make it fast. — Kent Beck",
 ];
 
 app.command('/dh-quote', async ({ command, ack, respond }) => {
   await ack();
-  const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
-
+  const pick = devQuotes[Math.floor(Math.random() * devQuotes.length)];
   await respond({
     response_type: 'in_channel',
-    text: `💡 *Dev Quote for <@${command.user_id}>:*\n> ${randomQuote}`,
+    text: `💡 *Quote:* "${pick}"`,
   });
 });
 
-// 4. /dh-uptime : This command checks the bot's uptime and returns it in a human readable format along with the host information.
-app.command('/dh-uptime', async ({ command, ack, respond }) => {
+// Uptime tracker
+app.command('/dh-uptime', async ({ ack, respond }) => {
   await ack();
+  const seconds = Math.floor((Date.now() - startTime) / 1000);
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
   await respond({
     response_type: 'in_channel',
-    text: `⏱️ *GalaxyBot Uptime:* \`${getUptime()}\`\n🚀 *Host:* Render Cloud Container`,
+    text: `⏱️ GalaxyBot uptime: \`${hrs}h ${mins}m${secs}s\` (Render Container)`,
   });
 });
 
-// 5. /dh-help : This command provide a list of all available commands and their descriptions in chat.
-app.command('/dh-help', async ({ command, ack, respond }) => {
+// Help command
+app.command('/dh-help', async ({ ack, respond }) => {
   await ack();
   await respond({
     response_type: 'ephemeral',
-    text: `🌌 *GalaxyBot Command Directory:*\n` +
-          `• \`/dh-ping\` — Check bot latency and online status\n` +
-          `• \`/dh-dice [sides]\` — Roll a die (e.g., \`/dh-dice 20\`)\n` +
-          `• \`/dh-quote\` — Get an inspirational programming quote\n` +
-          `• \`/dh-uptime\` — Check current bot uptime\n` +
-          `• \`/dh-help\` — Display this menu`,
+    text: `*GalaxyBot Commands:*\n` +
+          `• \`/dh-ping\` — Check bot latency & status\n` +
+          `• \`/dh-dice [sides]\` — Roll a die (default 6, or pass custom like \`/dh-dice 20\`)\n` +
+          `• \`/dh-quote\` — Get a random programming quote\n` +
+          `• \`/dh-uptime\` — Show how long the bot has been running\n` +
+          `• \`/dh-help\` — View this help list`,
   });
 });
 
 (async () => {
   await app.start();
-  console.log('⚡️ GalaxyBot is connected and listening via Socket Mode!');
+  console.log('GalaxyBot connected via Socket Mode.');
 })();
